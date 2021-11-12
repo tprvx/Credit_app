@@ -3,9 +3,10 @@ import json
 import os
 import time
 
-blockchain_dir = os.curdir + '/blockchain_temp/'
+blockchain_dir = os.curdir + '/blockchain/'
 transactions = []
 
+#Расчет дерева Меркла
 def setMercleRoot(trs):
 	merkle_hashes = []	#хеши транзакций
 	mercle_two = []		#хеши хешей
@@ -67,101 +68,62 @@ def inputTransaction(name, to_whom, amount):
 	if len(transactions) == 4:
 		write_block(transactions)
 		transactions.clear()
-
-
-#Расчет дерева Меркла
-def setGenesysBlock():
-
-	#получаем транзакции
-	trs = getTestTrs()
-
-	#получаем корень дерева Меркла
-	mercle_root = setMercleRoot(trs)
-	
-	#Заголовок блока
-	header = {
-		'number': 1,						#номер блока
-		'timestamp': time.ctime(),			#время создания
-		'mercle_root': mercle_root,			#корень дерева меркла для списка транзакций
-		'hash_of_block': '0x0',				#хеш блока
-		'prev_hash': '0x0',					#хеш предыдущего блока
-		'nonce': 0							#доказательство работы
-	}
-
-	#Формируеем блок
-	block = {
-		'header': header,	#Заголовок блока	
-		'trs': trs			#Список транзакций
-	}
-
-	#Поиск доказательства работы
-	proof = 0
-	while validHash(header) is False:
-		proof += 1
-		header['nonce'] = proof
-		#print(header)
-
-	#Формируем имя файла
-	header['hash_of_block'] = getHash(header)
-	name_of_file = blockchain_dir + f"{header['number']}" + '.json'  ###+ '_'+ f"{header['number']}" 
-	print(name_of_file)
-
-	#Создаем файл блока
-	with open(name_of_file, 'w') as file:
-		json.dump(block, file, indent=4, ensure_ascii=False)
  
 def write_block(trs): #name, to_whom, amount
 	
-	#получаем хеш пред блока
+	#Если папки с блокчейном не существует то создаем ее
+	if( not os.path.exists(blockchain_dir) ):
+		os.mkdir(blockchain_dir, 777)
+
+	#получаем номера блоков
 	numbers = get_files_numbers()
-	prev_number = numbers[-1]
-	number = str(prev_number + 1)
 
-	
-	f = open(blockchain_dir + str(prev_number) + '.json', 'r')
-	prev_hash = json.load(f)['hash_of_block']
-	#print(prev_hash)
-	#prev_hash = getHash(prev_file['header'])
-
-	#получаем транзакции
-	#trs = getTestTrs()
+	#если блоков нет, то генерируем Genesys блок
+	if(numbers == []):
+		prev_number = '0'
+		number = '0'
+		prev_hash = '0x0'
+	#Если блоки есть, то генерируем следующий блок
+	else:
+		prev_number = numbers[-1]
+		number = str(prev_number + 1)
+		f = open(blockchain_dir + str(prev_number) + '.json', 'r')
+		prev_hash = json.load(f)['hash_of_block']
 
 	#получаем корень дерева Меркла
 	mercle_root = setMercleRoot(trs)
 
 	#Заголовок блока
 	header = {
-		'version': 1,
+		'number': number,
+		'version': '1',
 		'timestamp': time.ctime(),			#время создания
 		'mercle_root': mercle_root,			#корень дерева меркла для списка транзакций
-		'prev_hash': prev_hash,					#хеш предыдущего блока
+		'prev_hash': prev_hash,				#хеш предыдущего блока
 		'nonce': 0							#доказательство работы
 	}
 
 	#Формируеем блок
 	block = {
-		'hash_of_block': '',	#хеш блока
-		'header': header,		#Заголовок блока	
-		'transactions': trs				#Список транзакций
+		'hash_of_block': '',				#хеш блока
+		'header': header,					#Заголовок блока	
+		'transactions': trs					#Список транзакций
 	}
 
 	#Поиск доказательства работы
 	proof = 0
 	while validHash(header) is False:
 		proof += 1
-		header['nonce'] = proof
-		#print(header)
+		header['nonce'] = str(proof)
 
 	#Формируем имя файла
 	block['hash_of_block'] = getHash(header)
 	name_of_file = blockchain_dir + number + '.json' 
-	#print(name_of_file)
 
 	#Создаем файл блока
 	with open(name_of_file, 'w') as file:
 		json.dump(block, file, indent=4, ensure_ascii=False)
 
-	
 #Получение сортированного списка блоков
 def get_files_numbers():
 	files = os.listdir(blockchain_dir)
@@ -244,13 +206,9 @@ def check_blockchain():
 	else:
 		results[-1]['summary_check'] = 'Corrupted!'
 
-
-
 	print(results)
 	return results
 
 if __name__ == '__main__':
   	check_blockchain()
-	#get_files()
-# 	#write_block()
-# 	#setGenesysBlock()
+ 	#write_block()
